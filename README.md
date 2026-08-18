@@ -143,6 +143,7 @@ Expected responsibilities:
 * [ ] Debit/Credit operations
 * [ ] Concurrency handling
 * [ ] Optimistic/Pessimistic locking
+* [ ] api gateway to validate request using jwt  and route request 
 
 > **Important:** Wallet balance operations must be concurrency-safe because multiple transactions may access the same wallet simultaneously.
 
