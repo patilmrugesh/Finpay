@@ -13,8 +13,12 @@ spring:
               uri: http://localhost:8082
               predicates:
                 - Path=/api/auth/**
+              filters:
+                - AddRequestHeader=X-Internal-Gateway-Token, finpay-internal-secret-key-2026
 
             - id: wallet-service
               uri: http://localhost:8084
               predicates:
                 - Path=/api/wallet/**
+              filters:
+                - AddRequestHeader=X-Internal-Gateway-Token, finpay-internal-secret-key-2026
