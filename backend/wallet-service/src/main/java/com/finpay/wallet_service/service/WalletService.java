@@ -129,7 +129,16 @@ public class WalletService {
 
     private Wallet getWalletByUserId(UUID userId) {
         return walletRepository.findByUserId(userId)
-                .orElseThrow(() -> new WalletNotFoundException("Wallet not found for user: " + userId));
+                .orElseGet(() -> {
+                    log.info("No wallet found for user {}. Auto-initializing default wallet.", userId);
+                    Wallet newWallet = Wallet.builder()
+                            .userId(userId)
+                            .balance(BigDecimal.ZERO)
+                            .currency("INR")
+                            .status(WalletStatus.ACTIVE)
+                            .build();
+                    return walletRepository.save(newWallet);
+                });
     }
 
     private WalletResponse mapToResponse(Wallet wallet) {

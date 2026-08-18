@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/wallet")
+@RequestMapping("/api/wallet")
 @RequiredArgsConstructor
 public class WalletController {
 

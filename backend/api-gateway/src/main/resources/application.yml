@@ -6,15 +6,15 @@ spring:
     name: api-gateway
   cloud:
     gateway:
-      default-filters:
-        - AddRequestHeader=X-Internal-Gateway-Token, finpay-internal-secret-key-2026
-      routes:
-        - id: auth-service
-          uri: http://localhost:8082
-          predicates:
-            - Path=/api/auth/**
+      server:
+        webmvc:
+          routes:
+            - id: auth-service
+              uri: http://localhost:8082
+              predicates:
+                - Path=/api/auth/**
 
-        - id: wallet-service
-          uri: http://localhost:8084
-          predicates:
-            - Path=/api/wallet/**
+            - id: wallet-service
+              uri: http://localhost:8084
+              predicates:
+                - Path=/api/wallet/**
