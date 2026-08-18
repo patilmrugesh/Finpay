@@ -59,7 +59,7 @@ The project follows a **microservices architecture** with separate databases for
 | -------------------- | -----: | --------------------------- | -------------- |
 | API Gateway          | `8080` | Routing & JWT filtering     | 🟡 Setup       |
 | Auth Service         | `8081` | Authentication & users      | 🔨 In Progress |
-| Wallet Service       | `8082` | Wallet & balance management | ⏳ Pending      |
+| Wallet Service       | `8082` | Wallet & balance management | 🔨 In Progress |
 | Payment Service      | `8083` | Transfers & payments        | ⏳ Pending      |
 | Notification Service | `8084` | Kafka notifications         | ⏳ Pending      |
 | Audit Service        | `8085` | Transaction/event auditing  | ⏳ Pending      |
@@ -128,7 +128,7 @@ docker compose down
 * [ ] Spring Security configuration
 * [ ] Auth APIs
 
-### ⏳ Next — Wallet Service
+### 🔨 In Progress — Wallet Service
 
 **Dev B — Wallet Service**
 
@@ -220,7 +220,7 @@ Then create a Pull Request.
 ```text
 Project Setup       ████████████████████  Done
 Auth Service        ███████░░░░░░░░░░░░░  In Progress
-Wallet Service      ░░░░░░░░░░░░░░░░░░░░  Pending
+Wallet Service      ███████░░░░░░░░░░░░░  In Progress
 Payment Service     ░░░░░░░░░░░░░░░░░░░░  Pending
 Kafka               ░░░░░░░░░░░░░░░░░░░░  Pending
 Notification        ░░░░░░░░░░░░░░░░░░░░  Pending

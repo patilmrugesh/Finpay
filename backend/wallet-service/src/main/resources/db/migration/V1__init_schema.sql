@@ -1,0 +1,17 @@
+CREATE TABLE IF NOT EXISTS wallets (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL UNIQUE,
+    balance DECIMAL(19, 4) NOT NULL DEFAULT 0.0000,
+    currency VARCHAR(3) NOT NULL DEFAULT 'INR',
+    status VARCHAR(20) NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS wallet_transactions (
+    id UUID PRIMARY KEY,
+    wallet_id UUID NOT NULL REFERENCES wallets(id),
+    transaction_type VARCHAR(20) NOT NULL,
+    amount DECIMAL(19, 4) NOT NULL,
+    reference_id VARCHAR(255),
+    timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
