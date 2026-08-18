@@ -1,232 +1,328 @@
 # 💳 FinPay — Distributed Digital Wallet & Payment Platform
 
-FinPay is a distributed digital wallet and payment platform built using **Java, Spring Boot, PostgreSQL, Docker, Kafka, and Angular**.
+FinPay is a distributed digital wallet and payment platform built using **Java 21, Spring Boot, PostgreSQL, Docker, Kafka, and Angular**.
 
-The project follows a **microservices architecture** with separate databases for each service.
+The project follows a **microservices architecture** with strict **database-per-service isolation** and unified routing through an **API Gateway**.
 
 ---
 
-## 🏗️ Architecture
+## 📢 Team Handover & Latest Progress
+
+> **For Collaborators / Teammates**
+>
+> The following components are currently implemented and working:
+>
+> ### 🚀 Completed
+>
+> **1. End-to-End Integration**
+>
+> * `auth-service`, `wallet-service`, and `api-gateway` are fully functional.
+> * All services are connected to their respective PostgreSQL Docker instances.
+>
+> **2. Port & Secret Alignment**
+>
+> * **API Gateway:** `8083`
+> * **Auth Service:** `8082` → PostgreSQL `5434`
+> * **Wallet Service:** `8084` → PostgreSQL `5435`
+> * Local PostgreSQL credentials are standardized:
+>
+>   * Username: `finpay_user`
+>   * Password: `0000`
+>
+> **3. Perimeter Security**
+>
+> * Direct requests to downstream services are blocked with `403 Forbidden`.
+> * All external requests must go through the API Gateway on port `8083`.
+> * The Gateway appends the internal gateway token before forwarding requests.
+>
+> **4. Auto-Wallet Provisioning**
+>
+> * When a new user's balance is checked, the Wallet Service automatically creates an active INR wallet with a `0.00` balance if one does not already exist.
+>
+> **5. Concurrency & Locking**
+>
+> * Optimistic locking and transactional isolation are implemented for wallet deposit, withdrawal, and ledger operations.
+
+---
+
+# 🏗️ Architecture
 
 ```text
                          ┌──────────────┐
-                         │   Angular    │
+                         │    Angular   │
                          │    :4200     │
                          └──────┬───────┘
                                 │
                                 ▼
                          ┌──────────────┐
                          │ API Gateway  │
-                         │    :8080     │
+                         │    :8083     │
                          └──────┬───────┘
                                 │
-                 ┌──────────────┼──────────────┐
-                 ▼              ▼              ▼
-          ┌────────────┐ ┌────────────┐ ┌────────────┐
-          │    Auth    │ │   Wallet   │ │  Payment   │
-          │   :8081    │ │   :8082    │ │   :8083    │
-          └─────┬──────┘ └─────┬──────┘ └─────┬──────┘
-                │              │              │
-                ▼              ▼              ▼
-             Auth DB       Wallet DB      Payment DB
-                                            │
-                                            ▼
-                                          Kafka
-                                            │
-                              ┌─────────────┴─────────────┐
-                              ▼                           ▼
-                       Notification                    Audit
-                         :8084                         :8085
+                  Adds X-Internal-Gateway-Token
+                                │
+                 ┌──────────────┴──────────────┐
+                 ▼                             ▼
+          ┌────────────┐                ┌────────────┐
+          │    Auth    │                │   Wallet   │
+          │   :8082    │                │   :8084    │
+          └─────┬──────┘                └─────┬──────┘
+                │                             │
+                ▼                             ▼
+            Auth DB                      Wallet DB
+             :5434                         :5435
 ```
 
 ---
 
-## 🛠️ Tech Stack
+# 🛠️ Tech Stack
 
-* **Backend:** Java 21, Spring Boot
-* **API Gateway:** Spring Cloud Gateway
-* **Database:** PostgreSQL
-* **Messaging:** Apache Kafka
-* **Authentication:** Spring Security + JWT
-* **Frontend:** Angular
-* **Infrastructure:** Docker & Docker Compose
-
----
-
-## 📦 Services
-
-| Service              |   Port | Responsibility              | Status         |
-| -------------------- | -----: | --------------------------- | -------------- |
-| API Gateway          | `8080` | Routing & JWT filtering     | 🟡 Setup       |
-| Auth Service         | `8081` | Authentication & users      | 🔨 In Progress |
-| Wallet Service       | `8082` | Wallet & balance management | 🔨 In Progress |
-| Payment Service      | `8083` | Transfers & payments        | ⏳ Pending      |
-| Notification Service | `8084` | Kafka notifications         | ⏳ Pending      |
-| Audit Service        | `8085` | Transaction/event auditing  | ⏳ Pending      |
-| Frontend             | `4200` | Angular UI                  | ⏳ Pending      |
+| Category                    | Technology                            |
+| --------------------------- | ------------------------------------- |
+| **Backend**                 | Java 21, Spring Boot, Spring Data JPA |
+| **API Gateway**             | Spring Cloud Gateway (MVC/WebMVC)     |
+| **Database**                | PostgreSQL                            |
+| **Database Infrastructure** | Docker                                |
+| **Migrations**              | Flyway                                |
+| **Authentication**          | Spring Security, JWT                  |
+| **JWT Algorithm**           | HMAC-SHA256                           |
+| **Internal Security**       | Gateway Secret Token Header           |
+| **Concurrency**             | JPA Optimistic Locking (`@Version`)   |
+| **Monetary Values**         | `BigDecimal`                          |
+| **Messaging & Cache**       | Apache Kafka, Redis *(Planned)*       |
+| **Frontend**                | Angular                               |
 
 ---
 
-## 🗄️ Database Setup
+# 📦 Services
 
-PostgreSQL databases are running through Docker Compose.
+| Service             |   Port | Responsibility                          | Perimeter         | Status    |
+| ------------------- | -----: | --------------------------------------- | ----------------- | --------- |
+| **API Gateway**     | `8083` | Unified routing, CORS, token header     | Public Entry      | 🟢 Active |
+| **Auth Service**    | `8082` | Registration, login, JWT authentication | Protected (`403`) | 🟢 Active |
+| **Wallet Service**  | `8084` | Balance, deposits, withdrawals, ledger  | Protected (`403`) | 🟢 Active |
+| **Payment Service** | `8085` | P2P transfers & transaction engine      | Protected (`403`) | ⏳ Planned |
+| **Frontend**        | `4200` | Angular client application              | Client UI         | ⏳ Pending |
 
-| Database           | Host Port |
-| ------------------ | --------: |
-| `finpay_auth_db`   |    `5434` |
-| `finpay_wallet_db` |    `5435` |
+---
 
-Credentials for local development:
+# 🗄️ Database Setup
 
-```text
-Username: finpay_user
-Password: 0000
+PostgreSQL instances are provisioned using **Docker Compose**.
+
+| Database   | Container          | Host Port | Database           | Username      | Password |
+| ---------- | ------------------ | --------: | ------------------ | ------------- | -------- |
+| **Auth**   | `finpay-auth-db`   |    `5434` | `finpay_auth_db`   | `finpay_user` | `0000`   |
+| **Wallet** | `finpay-wallet-db` |    `5435` | `finpay_wallet_db` | `finpay_user` | `0000`   |
+
+## Start the Databases
+
+```bash
+# Start PostgreSQL containers
+docker compose up -d
+
+# Check running containers
+docker ps
 ```
 
-Start the databases:
+## Reset Database Volumes
+
+> ⚠️ This removes the existing Docker volumes and database data.
+
+```bash
+docker compose down -v
+docker compose up -d
+```
+
+---
+
+# 🧪 Running & Testing the Application
+
+## 1. Start the Infrastructure
+
+Make sure Docker Desktop is running:
 
 ```bash
 docker compose up -d
 ```
 
-Check containers:
+Verify:
 
 ```bash
 docker ps
 ```
 
-Stop containers:
+---
+
+## 2. Start the Services
+
+Run the following applications from IntelliJ or your terminal:
+
+| Application                |   Port |
+| -------------------------- | -----: |
+| `AuthServiceApplication`   | `8082` |
+| `WalletServiceApplication` | `8084` |
+| `ApiGatewayApplication`    | `8083` |
+
+---
+
+# 🔄 End-to-End API Testing
+
+All external API requests should go through the **API Gateway (`8083`)**.
+
+## Step A — Register a User
 
 ```bash
-docker compose down
+curl -X POST http://localhost:8083/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fullName": "Mrugesh Patil",
+    "email": "mrugesh@finpay.com",
+    "password": "password123"
+  }'
+```
+
+> Copy the returned `userId` and `token` from the response.
+
+---
+
+## Step B — Login
+
+```bash
+curl -X POST http://localhost:8083/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "mrugesh@finpay.com",
+    "password": "password123"
+  }'
 ```
 
 ---
 
-## 👨‍💻 Current Project Progress
+## Step C — Check Wallet Balance
 
-### ✅ Completed
+Replace `<PASTE_USER_ID_HERE>` with the user's ID:
 
-* [x] Project repository and structure
-* [x] Microservices project structure
-* [x] Docker Compose setup
-* [x] PostgreSQL Docker containers
-* [x] Auth database setup
-* [x] Wallet database setup
-* [x] Local development environment
-* [x] Git branching workflow
+```bash
+curl -X GET \
+  http://localhost:8083/api/wallet/<PASTE_USER_ID_HERE>/balance
+```
 
-### 🔨 Currently Working On
+Expected response:
 
-**Dev A — Auth Service**
+```json
+{
+  "balance": 0.0000,
+  "currency": "INR"
+}
+```
 
-* [ ] User registration
-* [ ] Login
-* [ ] Password hashing
-* [ ] JWT generation
-* [ ] JWT validation
-* [ ] Spring Security configuration
-* [ ] Auth APIs
-
-### 🔨 In Progress — Wallet Service
-
-**Dev B — Wallet Service**
-
-The next task is to implement the Wallet Service.
-
-Expected responsibilities:
-
-* [ ] Wallet creation
-* [ ] Wallet balance
-* [ ] Deposit
-* [ ] Withdrawal
-* [ ] Debit/Credit operations
-* [ ] Concurrency handling
-* [ ] Optimistic/Pessimistic locking
-* [ ] api gateway to validate request using jwt  and route request 
-
-> **Important:** Wallet balance operations must be concurrency-safe because multiple transactions may access the same wallet simultaneously.
-
-### ⏳ Remaining Services
-
-After Auth and Wallet:
-
-* [ ] Payment Service
-* [ ] Kafka integration
-* [ ] Notification Service
-* [ ] Audit Service
-* [ ] API Gateway integration
-* [ ] Angular frontend
-* [ ] Integration testing
-* [ ] End-to-end testing
+> If the wallet doesn't exist, the Wallet Service automatically provisions an active INR wallet with a `0.00` balance.
 
 ---
 
-## 🔒 Development Rules
+## Step D — Deposit Funds
 
-### Money
+```bash
+curl -X POST \
+  http://localhost:8083/api/wallet/<PASTE_USER_ID_HERE>/deposit \
+  -H "Content-Type: application/json" \
+  -d '{
+    "amount": 1000.00,
+    "description": "Initial Wallet Top-Up"
+  }'
+```
 
-Never use `float` or `double` for monetary values.
+---
 
-Use:
+## Step E — Withdraw Funds
+
+```bash
+curl -X POST \
+  http://localhost:8083/api/wallet/<PASTE_USER_ID_HERE>/withdraw \
+  -H "Content-Type: application/json" \
+  -d '{
+    "amount": 250.00,
+    "description": "ATM Withdrawal"
+  }'
+```
+
+---
+
+## Step F — Retrieve Transaction History
+
+```bash
+curl -X GET \
+  http://localhost:8083/api/wallet/<PASTE_USER_ID_HERE>/transactions
+```
+
+---
+
+# 🔒 Security Perimeter Verification
+
+The downstream Wallet Service should **not** be directly accessible.
+
+Try calling it directly:
+
+```bash
+curl -X GET \
+  http://localhost:8084/api/wallet/<PASTE_USER_ID_HERE>/balance
+```
+
+### Expected Result
+
+```json
+{
+  "status": 403,
+  "error": "Forbidden",
+  "message": "Direct access to internal microservices is blocked. Please route all requests through the API Gateway (Port 8083)."
+}
+```
+
+This confirms that requests are required to enter through the **API Gateway**.
+
+---
+
+# 🔐 Engineering Guidelines
+
+### 💰 Monetary Precision
+
+Always use:
 
 ```java
 BigDecimal
 ```
 
-### Database Isolation
+for currency and wallet balances.
 
-Each service owns its own database.
+**Never use `float` or `double` for monetary values.**
 
-**Do not:**
+### 🗄️ Database Isolation
 
-* Query another service's database
-* Share JPA entities between services
-* Create cross-database dependencies
+Each microservice owns its own database.
 
-Services communicate using **REST APIs or Kafka**.
+Services must **never**:
 
-### Git Workflow
+* Share database connections
+* Access another service's tables directly
+* Create cross-service database dependencies
 
-Never push directly to `main`.
+### 🛡️ Perimeter Defense
 
-Create a feature branch:
-
-```bash
-git checkout main
-git pull origin main
-git checkout -b feature/<feature-name>
-```
-
-Example:
-
-```bash
-git checkout -b feature/wallet-service
-```
-
-Push:
-
-```bash
-git push origin feature/wallet-service
-```
-
-Then create a Pull Request.
-
----
-
-## 🚀 Project Status
-
-**Current Phase:** 🟡 Initial Development
+All downstream APIs must validate:
 
 ```text
-Project Setup       ████████████████████  Done
-Auth Service        ███████░░░░░░░░░░░░░  In Progress
-Wallet Service      ███████░░░░░░░░░░░░░  In Progress
-Payment Service     ░░░░░░░░░░░░░░░░░░░░  Pending
-Kafka               ░░░░░░░░░░░░░░░░░░░░  Pending
-Notification        ░░░░░░░░░░░░░░░░░░░░  Pending
-Audit               ░░░░░░░░░░░░░░░░░░░░  Pending
-Frontend            ░░░░░░░░░░░░░░░░░░░░  Pending
+X-Internal-Gateway-Token
 ```
 
-**Current focus:** Auth Service implementation + Wallet Service development.
+Direct access to internal services should be rejected.
+
+### 🌿 Git Workflow
+
+Create a feature branch for every task:
+
+```bash
+git checkout -b feature/<name>
+```
+
+Keep your branch synchronized with `main` and rebase before submitting a Pull Request.
