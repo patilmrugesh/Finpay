@@ -28,6 +28,8 @@ public class WalletService {
     private final WalletRepository walletRepository;
     private final WalletTransactionRepository transactionRepository;
 
+
+
     @Transactional
     public WalletResponse createWallet(WalletCreateRequest request) {
         if (walletRepository.findByUserId(request.userId()).isPresent()) {
@@ -148,6 +150,67 @@ public class WalletService {
                 wallet.getBalance(),
                 wallet.getCurrency(),
                 wallet.getStatus().name()
+        );
+    }
+    @Transactional
+    public TransferResponse transferFunds(UUID senderUserId, TransferRequest request) {
+        if (senderUserId.equals(request.recipientUserId())) {
+            throw new IllegalArgumentException("Cannot transfer funds to your own wallet");
+        }
+
+        // Consistent ordering prevents database deadlocks under high concurrency
+        UUID firstId = senderUserId.compareTo(request.recipientUserId()) < 0 ? senderUserId : request.recipientUserId();
+        UUID secondId = senderUserId.compareTo(request.recipientUserId()) < 0 ? request.recipientUserId() : senderUserId;
+
+        Wallet firstWallet = getWalletByUserId(firstId);
+        Wallet secondWallet = getWalletByUserId(secondId);
+
+        Wallet senderWallet = senderUserId.equals(firstId) ? firstWallet : secondWallet;
+        Wallet recipientWallet = senderUserId.equals(firstId) ? secondWallet : firstWallet;
+
+        if (senderWallet.getBalance().compareTo(request.amount()) < 0) {
+            throw new InsufficientFundsException("Insufficient funds. Current balance: " + senderWallet.getBalance());
+        }
+
+        // Debit sender & Credit recipient
+        senderWallet.setBalance(senderWallet.getBalance().subtract(request.amount()));
+        recipientWallet.setBalance(recipientWallet.getBalance().add(request.amount()));
+
+        walletRepository.save(senderWallet);
+        walletRepository.save(recipientWallet);
+
+        UUID referenceId = UUID.randomUUID();
+
+        // Sender transaction record
+        WalletTransaction debitTx = WalletTransaction.builder()
+                .walletId(senderWallet.getId())
+                .transactionType(TransactionType.TRANSFER_SENT)
+                .amount(request.amount())
+                .counterpartyId(recipientWallet.getId())
+                .description(request.description() != null ? request.description() : "Transfer Sent")
+                .referenceId(referenceId.toString())
+                .build();
+        WalletTransaction savedDebit = transactionRepository.save(debitTx);
+
+        // Recipient transaction record
+        WalletTransaction creditTx = WalletTransaction.builder()
+                .walletId(recipientWallet.getId())
+                .transactionType(TransactionType.TRANSFER_RECEIVED)
+                .amount(request.amount())
+                .counterpartyId(senderWallet.getId())
+                .description(request.description() != null ? request.description() : "Transfer Received")
+                .referenceId(referenceId.toString())
+                .build();
+        transactionRepository.save(creditTx);
+
+        return new TransferResponse(
+                savedDebit.getId(),
+                senderUserId,
+                request.recipientUserId(),
+                request.amount(),
+                senderWallet.getBalance(),
+                "COMPLETED",
+                savedDebit.getTimestamp()
         );
     }
 }

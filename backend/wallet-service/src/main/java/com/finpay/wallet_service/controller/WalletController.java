@@ -18,6 +18,14 @@ public class WalletController {
 
     private final WalletService walletService;
 
+    @PostMapping("/{userId}/transfer")
+    public ResponseEntity<TransferResponse> transferFunds(
+            @PathVariable UUID userId,
+            @Valid @RequestBody TransferRequest request) {
+        TransferResponse response = walletService.transferFunds(userId, request);
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/create")
     public ResponseEntity<WalletResponse> createWallet(@Valid @RequestBody WalletCreateRequest request) {
         WalletResponse response = walletService.createWallet(request);

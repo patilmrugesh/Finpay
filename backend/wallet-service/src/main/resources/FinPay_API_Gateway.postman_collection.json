@@ -1,0 +1,88 @@
+{
+  "info": {
+    "name": "FinPay API Gateway",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8083" },
+    { "key": "authToken", "value": "" },
+    { "key": "senderUserId", "value": "81819522-b64c-4c47-a58d-114eead214cf" },
+    { "key": "recipientUserId", "value": "2b00e25f-4491-4356-89d6-20c4fe4fe4c1" }
+  ],
+  "item": [
+    {
+      "name": "1. Auth - Register",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fullName\": \"Mrugesh Patil\",\n  \"email\": \"mrugesh@finpay.com\",\n  \"password\": \"password123\"\n}"
+        }
+      }
+    },
+    {
+      "name": "2. Auth - Login",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"mrugesh@finpay.com\",\n  \"password\": \"password123\"\n}"
+        }
+      }
+    },
+    {
+      "name": "3. Wallet - Check Balance",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/wallet/{{senderUserId}}/balance"
+      }
+    },
+    {
+      "name": "4. Wallet - Deposit Funds",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/wallet/{{senderUserId}}/deposit",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 1000.00,\n  \"description\": \"Manual Postman Deposit\"\n}"
+        }
+      }
+    },
+    {
+      "name": "5. Wallet - P2P Transfer",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/wallet/{{senderUserId}}/transfer",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"recipientUserId\": \"{{recipientUserId}}\",\n  \"amount\": 250.00,\n  \"description\": \"Dinner Split\"\n}"
+        }
+      }
+    },
+    {
+      "name": "6. Wallet - Withdraw Funds",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/wallet/{{senderUserId}}/withdraw",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 100.00,\n  \"description\": \"ATM Cashout\"\n}"
+        }
+      }
+    },
+    {
+      "name": "7. Wallet - Transaction History",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/wallet/{{senderUserId}}/transactions"
+      }
+    }
+  ]
+}
