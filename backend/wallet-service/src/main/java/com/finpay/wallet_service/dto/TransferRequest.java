@@ -13,5 +13,7 @@ public record TransferRequest(
         @DecimalMin(value = "0.01", message = "Transfer amount must be greater than 0")
         BigDecimal amount,
 
-        String description
+        String description,
+        
+        String referenceId
 ) {}

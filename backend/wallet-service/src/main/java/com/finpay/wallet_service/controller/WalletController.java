@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
 
 @RestController
 @RequestMapping("/api/wallet")
@@ -50,9 +51,14 @@ public class WalletController {
         return ResponseEntity.ok(response);
     }
 
+
+
     @GetMapping("/{userId}/transactions")
-    public ResponseEntity<List<TransactionHistoryResponse>> getTransactions(@PathVariable UUID userId) {
-        List<TransactionHistoryResponse> response = walletService.getTransactionHistory(userId);
+    public ResponseEntity<Page<TransactionHistoryResponse>> getTransactions(
+            @PathVariable UUID userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Page<TransactionHistoryResponse> response = walletService.getTransactionHistory(userId, page, size);
         return ResponseEntity.ok(response);
     }
 }

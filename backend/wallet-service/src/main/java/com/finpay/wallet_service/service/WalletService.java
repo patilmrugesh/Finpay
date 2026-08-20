@@ -1,9 +1,10 @@
 package com.finpay.wallet_service.service;
 
 import com.finpay.wallet_service.dto.*;
+import com.finpay.wallet_service.exception.DuplicateTransactionException;
 import com.finpay.wallet_service.exception.InsufficientFundsException;
 import com.finpay.wallet_service.exception.WalletAlreadyExistsException;
-import com.finpay.wallet_service.exception.WalletNotFoundException;
+import com.finpay.wallet_service.exception.WalletFrozenException;
 import com.finpay.wallet_service.model.Wallet;
 import com.finpay.wallet_service.model.WalletTransaction;
 import com.finpay.wallet_service.model.enums.TransactionType;
@@ -12,6 +13,9 @@ import com.finpay.wallet_service.repository.WalletRepository;
 import com.finpay.wallet_service.repository.WalletTransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,8 +31,6 @@ public class WalletService {
 
     private final WalletRepository walletRepository;
     private final WalletTransactionRepository transactionRepository;
-
-
 
     @Transactional
     public WalletResponse createWallet(WalletCreateRequest request) {
@@ -57,7 +59,15 @@ public class WalletService {
 
     @Transactional
     public TransactionResponse deposit(UUID userId, TransactionRequest request) {
-        Wallet wallet = getWalletByUserId(userId);
+        if (request.referenceId() != null && transactionRepository.existsByReferenceId(request.referenceId())) {
+            throw new DuplicateTransactionException("Transaction with reference ID " + request.referenceId() + " already exists");
+        }
+
+        Wallet wallet = getWalletByUserIdForUpdate(userId);
+
+        if (wallet.getStatus() == WalletStatus.FROZEN) {
+            throw new WalletFrozenException("Wallet is frozen for user: " + userId);
+        }
         
         wallet.setBalance(wallet.getBalance().add(request.amount()));
         Wallet savedWallet = walletRepository.save(wallet);
@@ -84,7 +94,15 @@ public class WalletService {
 
     @Transactional
     public TransactionResponse withdraw(UUID userId, TransactionRequest request) {
-        Wallet wallet = getWalletByUserId(userId);
+        if (request.referenceId() != null && transactionRepository.existsByReferenceId(request.referenceId())) {
+            throw new DuplicateTransactionException("Transaction with reference ID " + request.referenceId() + " already exists");
+        }
+
+        Wallet wallet = getWalletByUserIdForUpdate(userId);
+
+        if (wallet.getStatus() == WalletStatus.FROZEN) {
+            throw new WalletFrozenException("Wallet is frozen for user: " + userId);
+        }
 
         if (wallet.getBalance().compareTo(request.amount()) < 0) {
             throw new InsufficientFundsException("insufficient fund");
@@ -114,11 +132,12 @@ public class WalletService {
     }
 
     @Transactional(readOnly = true)
-    public List<TransactionHistoryResponse> getTransactionHistory(UUID userId) {
+    public Page<TransactionHistoryResponse> getTransactionHistory(UUID userId, int page, int size) {
         Wallet wallet = getWalletByUserId(userId);
-        List<WalletTransaction> transactions = transactionRepository.findByWalletIdOrderByTimestampDesc(wallet.getId());
+        Pageable pageable = PageRequest.of(page, size);
+        Page<WalletTransaction> transactions = transactionRepository.findByWalletIdOrderByTimestampDesc(wallet.getId(), pageable);
 
-        return transactions.stream().map(tx -> new TransactionHistoryResponse(
+        return transactions.map(tx -> new TransactionHistoryResponse(
                 tx.getId(),
                 tx.getTransactionType().name(),
                 tx.getAmount(),
@@ -126,13 +145,27 @@ public class WalletService {
                 tx.getDescription(),
                 tx.getReferenceId(),
                 tx.getTimestamp()
-        )).collect(Collectors.toList());
+        ));
     }
 
     private Wallet getWalletByUserId(UUID userId) {
         return walletRepository.findByUserId(userId)
                 .orElseGet(() -> {
                     log.info("No wallet found for user {}. Auto-initializing default wallet.", userId);
+                    Wallet newWallet = Wallet.builder()
+                            .userId(userId)
+                            .balance(BigDecimal.ZERO)
+                            .currency("INR")
+                            .status(WalletStatus.ACTIVE)
+                            .build();
+                    return walletRepository.save(newWallet);
+                });
+    }
+
+    private Wallet getWalletByUserIdForUpdate(UUID userId) {
+        return walletRepository.findByUserIdForUpdate(userId)
+                .orElseGet(() -> {
+                    log.info("No wallet found for user {} for update. Auto-initializing default wallet.", userId);
                     Wallet newWallet = Wallet.builder()
                             .userId(userId)
                             .balance(BigDecimal.ZERO)
@@ -152,8 +185,13 @@ public class WalletService {
                 wallet.getStatus().name()
         );
     }
+    
     @Transactional
     public TransferResponse transferFunds(UUID senderUserId, TransferRequest request) {
+        if (request.referenceId() != null && transactionRepository.existsByReferenceId(request.referenceId())) {
+            throw new DuplicateTransactionException("Transfer with reference ID " + request.referenceId() + " already exists");
+        }
+
         if (senderUserId.equals(request.recipientUserId())) {
             throw new IllegalArgumentException("Cannot transfer funds to your own wallet");
         }
@@ -162,11 +200,18 @@ public class WalletService {
         UUID firstId = senderUserId.compareTo(request.recipientUserId()) < 0 ? senderUserId : request.recipientUserId();
         UUID secondId = senderUserId.compareTo(request.recipientUserId()) < 0 ? request.recipientUserId() : senderUserId;
 
-        Wallet firstWallet = getWalletByUserId(firstId);
-        Wallet secondWallet = getWalletByUserId(secondId);
+        Wallet firstWallet = getWalletByUserIdForUpdate(firstId);
+        Wallet secondWallet = getWalletByUserIdForUpdate(secondId);
 
         Wallet senderWallet = senderUserId.equals(firstId) ? firstWallet : secondWallet;
         Wallet recipientWallet = senderUserId.equals(firstId) ? secondWallet : firstWallet;
+
+        if (senderWallet.getStatus() == WalletStatus.FROZEN) {
+            throw new WalletFrozenException("Sender wallet is frozen");
+        }
+        if (recipientWallet.getStatus() == WalletStatus.FROZEN) {
+            throw new WalletFrozenException("Recipient wallet is frozen");
+        }
 
         if (senderWallet.getBalance().compareTo(request.amount()) < 0) {
             throw new InsufficientFundsException("Insufficient funds. Current balance: " + senderWallet.getBalance());
@@ -179,7 +224,7 @@ public class WalletService {
         walletRepository.save(senderWallet);
         walletRepository.save(recipientWallet);
 
-        UUID referenceId = UUID.randomUUID();
+        String referenceId = request.referenceId() != null ? request.referenceId() : UUID.randomUUID().toString();
 
         // Sender transaction record
         WalletTransaction debitTx = WalletTransaction.builder()
@@ -188,7 +233,7 @@ public class WalletService {
                 .amount(request.amount())
                 .counterpartyId(recipientWallet.getId())
                 .description(request.description() != null ? request.description() : "Transfer Sent")
-                .referenceId(referenceId.toString())
+                .referenceId(referenceId)
                 .build();
         WalletTransaction savedDebit = transactionRepository.save(debitTx);
 
@@ -199,7 +244,7 @@ public class WalletService {
                 .amount(request.amount())
                 .counterpartyId(senderWallet.getId())
                 .description(request.description() != null ? request.description() : "Transfer Received")
-                .referenceId(referenceId.toString())
+                .referenceId(referenceId)
                 .build();
         transactionRepository.save(creditTx);
 

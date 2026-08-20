@@ -7,7 +7,12 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 @Repository
 public interface WalletTransactionRepository extends JpaRepository<WalletTransaction, UUID> {
-    List<WalletTransaction> findByWalletIdOrderByTimestampDesc(UUID walletId);
+    Page<WalletTransaction> findByWalletIdOrderByTimestampDesc(UUID walletId, Pageable pageable);
+    
+    boolean existsByReferenceId(String referenceId);
 }

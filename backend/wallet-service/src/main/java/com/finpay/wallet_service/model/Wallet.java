@@ -36,4 +36,12 @@ public class Wallet {
     @Version
     @Column(nullable = false)
     private Long version;
+
+    @org.hibernate.annotations.CreationTimestamp
+    @Column(nullable = false, updatable = false)
+    private java.time.Instant createdAt;
+
+    @org.hibernate.annotations.UpdateTimestamp
+    @Column(nullable = false)
+    private java.time.Instant updatedAt;
 }
